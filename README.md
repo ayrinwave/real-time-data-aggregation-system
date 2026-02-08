@@ -45,6 +45,9 @@ HTTP API для конфигурации во время работы:
 # Запуск инфраструктуры
 docker-compose up -d zookeeper kafka clickhouse kafka-ui kafka-init
 
+# Скачивание зависимостей
+go mod tidy
+
 # Запуск Продюсера локально
 cd producer
 go run cmd/main.go
