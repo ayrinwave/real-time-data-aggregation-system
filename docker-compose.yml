@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Infrastructure: Zookeeper
+  # ==========================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - realtime-network
+
+  # ==========================================
+  # Infrastructure: Kafka
+  # ==========================================
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - realtime-network
+
+  # ==========================================
+  # Infrastructure: ClickHouse
+  # ==========================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    hostname: clickhouse
+    container_name: clickhouse
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    environment:
+      # Отключаем аутентификацию для локальной разработки
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - realtime-network
+
+  # ==========================================
+  # UI: Kafka UI
+  # ==========================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - realtime-network
+
+  # ==========================================
+  # Init: Create Kafka topics
+  # ==========================================
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      /bin/sh -c "
+      echo 'Waiting for Kafka to be ready...'
+      kafka-broker-api-versions --bootstrap-server kafka:29092
+      
+      echo 'Creating page-views topic...'
+      kafka-topics --bootstrap-server kafka:29092 \
+        --create --if-not-exists \
+        --topic page-views \
+        --replication-factor 1 \
+        --partitions 4
+      
+      echo 'Listing topics:'
+      kafka-topics --bootstrap-server kafka:29092 --list
+      
+      echo 'Kafka initialization complete!'
+      "
+    networks:
+      - realtime-network
+
+  # ==========================================
+  # Application: Producer (optional - can run locally)
+  # ==========================================
+  # Uncomment if you want to run Producer in Docker
+  # producer:
+  #   build:
+  #     context: ./producer
+  #     dockerfile: Dockerfile
+  #   container_name: producer
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     KAFKA_BROKERS: kafka:29092
+  #     KAFKA_TOPIC: page-views
+  #   networks:
+  #     - realtime-network
+
+  # ==========================================
+  # Application: Consumer (optional - can run locally)
+  # ==========================================
+  # Uncomment if you want to run Consumer in Docker
+  # consumer:
+  #   build:
+  #     context: ./consumer
+  #     dockerfile: Dockerfile
+  #   container_name: consumer
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #     clickhouse:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     KAFKA_BROKERS: kafka:29092
+  #     KAFKA_TOPIC: page-views
+  #     CLICKHOUSE_ADDRESSES: clickhouse:9000
+  #   networks:
+  #     - realtime-network
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  realtime-network:
+    driver: bridge
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  clickhouse-data:
+    driver: local
+  clickhouse-logs:
+    driver: local
