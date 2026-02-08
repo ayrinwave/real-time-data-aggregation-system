@@ -1,0 +1,52 @@
+server:
+  port: 8081
+
+kafka:
+  brokers:
+    - localhost:9092
+  topic: page-views
+  group_id: page-views-consumer
+  version: "2.8.0"
+
+  auto_offset_reset: earliest
+  enable_auto_commit: false
+  session_timeout: 10s
+  heartbeat_interval: 3s
+
+  fetch_min_bytes: 1
+  fetch_max_bytes: 1048576
+  fetch_max_wait_ms: 500ms
+
+  max_processing_time: 30s
+
+clickhouse:
+  addresses:
+    - 127.0.0.1:9000
+  database: default
+  username: default
+  password: ""
+
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime: 1h
+
+  dial_timeout: 10s
+  read_timeout: 30s
+  write_timeout: 30s
+
+  compression: lz4
+
+consumer:
+  mode: hybrid
+
+  batch_size: 1000
+  batch_timeout: 10s
+
+  retry_max: 3
+  retry_backoff: 100ms
+
+  buffer_size: 10000
+
+  workers: 4
+
+  delivery_guarantee: at-least-once
