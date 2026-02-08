@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # ==========================================
-  # Infrastructure: Zookeeper
+  #  Zookeeper
   # ==========================================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -22,7 +22,7 @@ services:
       - realtime-network
 
   # ==========================================
-  # Infrastructure: Kafka
+  # Kafka
   # ==========================================
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -55,7 +55,7 @@ services:
       - realtime-network
 
   # ==========================================
-  # Infrastructure: ClickHouse
+  # ClickHouse
   # ==========================================
   clickhouse:
     image: clickhouse/clickhouse-server:latest
@@ -86,7 +86,7 @@ services:
       - realtime-network
 
   # ==========================================
-  # UI: Kafka UI
+  # Kafka UI
   # ==========================================
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -103,7 +103,7 @@ services:
       - realtime-network
 
   # ==========================================
-  # Init: Create Kafka topics
+  # Create Kafka topics
   # ==========================================
   kafka-init:
     image: confluentinc/cp-kafka:7.5.0
@@ -130,49 +130,6 @@ services:
       "
     networks:
       - realtime-network
-
-  # ==========================================
-  # Application: Producer (optional - can run locally)
-  # ==========================================
-  # Uncomment if you want to run Producer in Docker
-  # producer:
-  #   build:
-  #     context: ./producer
-  #     dockerfile: Dockerfile
-  #   container_name: producer
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     KAFKA_BROKERS: kafka:29092
-  #     KAFKA_TOPIC: page-views
-  #   networks:
-  #     - realtime-network
-
-  # ==========================================
-  # Application: Consumer (optional - can run locally)
-  # ==========================================
-  # Uncomment if you want to run Consumer in Docker
-  # consumer:
-  #   build:
-  #     context: ./consumer
-  #     dockerfile: Dockerfile
-  #   container_name: consumer
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #     clickhouse:
-  #       condition: service_healthy
-  #   ports:
-  #     - "8081:8081"
-  #   environment:
-  #     KAFKA_BROKERS: kafka:29092
-  #     KAFKA_TOPIC: page-views
-  #     CLICKHOUSE_ADDRESSES: clickhouse:9000
-  #   networks:
-  #     - realtime-network
 
 # ==========================================
 # Networks
